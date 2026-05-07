@@ -1,11 +1,69 @@
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 const BASE_URL = "https://finnhub.io/api/v1";
+const EASTERN_TIME_ZONE = "America/New_York";
+const PREMARKET_START_MINUTES = 4 * 60;
+const REGULAR_MARKET_OPEN_MINUTES = 9 * 60 + 30;
+const DEFAULT_CANDLE_MINUTES_BACK = 360;
+const RED_REVERSAL_VOLUME_MULTIPLIER = 2;
+
+const easternTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: EASTERN_TIME_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
 
 if (!FINNHUB_API_KEY) {
   console.warn("Missing FINNHUB_API_KEY in .env");
 }
 
+function assertFinnhubApiKey() {
+  if (!FINNHUB_API_KEY) {
+    throw new Error("Missing FINNHUB_API_KEY in .env");
+  }
+}
+
+function isOkCandles(candles) {
+  return (
+    candles?.s === "ok" &&
+    Array.isArray(candles.c) &&
+    Array.isArray(candles.h) &&
+    Array.isArray(candles.l) &&
+    Array.isArray(candles.o) &&
+    Array.isArray(candles.t) &&
+    Array.isArray(candles.v) &&
+    candles.c.length > 0
+  );
+}
+
+function getEasternMinutes(timestampSeconds) {
+  const parts = easternTimeFormatter.formatToParts(
+    new Date(timestampSeconds * 1000)
+  );
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
+  const minute = Number(
+    parts.find((part) => part.type === "minute")?.value ?? 0
+  );
+
+  return (hour % 24) * 60 + minute;
+}
+
+function isPremarketTimestamp(timestampSeconds) {
+  const minutes = getEasternMinutes(timestampSeconds);
+
+  return (
+    minutes >= PREMARKET_START_MINUTES &&
+    minutes < REGULAR_MARKET_OPEN_MINUTES
+  );
+}
+
+function sum(values) {
+  return values.reduce((total, value) => total + value, 0);
+}
+
 async function finnhubGet(path, params = {}) {
+  assertFinnhubApiKey();
+
   const url = new URL(`${BASE_URL}${path}`);
 
   Object.entries(params).forEach(([key, value]) => {
@@ -29,7 +87,11 @@ async function getQuote(symbol) {
   return finnhubGet("/quote", { symbol });
 }
 
-async function getCandles(symbol, resolution = "1", minutesBack = 90) {
+async function getCandles(
+  symbol,
+  resolution = "1",
+  minutesBack = DEFAULT_CANDLE_MINUTES_BACK
+) {
   const to = Math.floor(Date.now() / 1000);
   const from = to - minutesBack * 60;
 
@@ -55,47 +117,28 @@ async function getCompanyNews(symbol) {
 }
 
 function calculateRelVol(candles) {
-  if (!candles || candles.s !== "ok" || !candles.v?.length) return 0;
+  if (!isOkCandles(candles) || !candles.v.length) return 0;
 
   const latestVolume = candles.v[candles.v.length - 1];
-  const avgVolume =
-    candles.v.reduce((sum, volume) => sum + volume, 0) / candles.v.length;
+  const comparisonVolumes = candles.v.slice(0, -1);
+  const averageVolume = comparisonVolumes.length
+    ? sum(comparisonVolumes) / comparisonVolumes.length
+    : latestVolume;
 
-  if (!avgVolume) return 0;
-  return Number((latestVolume / avgVolume).toFixed(2));
+  if (!averageVolume) return 0;
+  return Number((latestVolume / averageVolume).toFixed(2));
 }
 
 function calculatePremarketVolume(candles) {
-  if (!candles || candles.s !== "ok" || !candles.v?.length) return 0;
+  if (!isOkCandles(candles)) return 0;
 
-  return candles.v.reduce((sum, volume, index) => {
-    const timestamp = candles.t[index] * 1000;
-    const date = new Date(timestamp);
-
-    const easternHour = Number(
-      new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/New_York",
-        hour: "2-digit",
-        hour12: false,
-      }).format(date)
-    );
-
-    const easternMinute = Number(
-      new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/New_York",
-        minute: "2-digit",
-      }).format(date)
-    );
-
-    const minutes = easternHour * 60 + easternMinute;
-    const isPremarket = minutes >= 240 && minutes < 570;
-
-    return isPremarket ? sum + volume : sum;
+  return candles.v.reduce((total, volume, index) => {
+    return isPremarketTimestamp(candles.t[index]) ? total + volume : total;
   }, 0);
 }
 
 function getVWAP(candles) {
-  if (!candles || candles.s !== "ok" || !candles.c?.length) return null;
+  if (!isOkCandles(candles)) return null;
 
   let cumulativePV = 0;
   let cumulativeVolume = 0;
@@ -113,42 +156,17 @@ function getVWAP(candles) {
 }
 
 function getPMH(candles) {
-  if (!candles || candles.s !== "ok" || !candles.h?.length) return null;
+  if (!isOkCandles(candles)) return null;
 
-  let pmh = null;
+  return candles.h.reduce((pmh, high, index) => {
+    if (!isPremarketTimestamp(candles.t[index])) return pmh;
 
-  for (let i = 0; i < candles.h.length; i++) {
-    const timestamp = candles.t[i] * 1000;
-    const date = new Date(timestamp);
-
-    const easternHour = Number(
-      new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/New_York",
-        hour: "2-digit",
-        hour12: false,
-      }).format(date)
-    );
-
-    const easternMinute = Number(
-      new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/New_York",
-        minute: "2-digit",
-      }).format(date)
-    );
-
-    const minutes = easternHour * 60 + easternMinute;
-    const isPremarket = minutes >= 240 && minutes < 570;
-
-    if (isPremarket) {
-      pmh = pmh === null ? candles.h[i] : Math.max(pmh, candles.h[i]);
-    }
-  }
-
-  return pmh;
+    return pmh === null ? high : Math.max(pmh, high);
+  }, null);
 }
 
 function getVelocityPct(candles, lookbackBars = 5) {
-  if (!candles || candles.s !== "ok" || candles.c.length <= lookbackBars) return 0;
+  if (!isOkCandles(candles) || candles.c.length <= lookbackBars) return 0;
 
   const current = candles.c[candles.c.length - 1];
   const previous = candles.c[candles.c.length - 1 - lookbackBars];
@@ -158,7 +176,7 @@ function getVelocityPct(candles, lookbackBars = 5) {
 }
 
 function getUpperWickPct(candles) {
-  if (!candles || candles.s !== "ok" || !candles.c?.length) return 0;
+  if (!isOkCandles(candles)) return 0;
 
   const i = candles.c.length - 1;
   const high = candles.h[i];
@@ -173,11 +191,29 @@ function getUpperWickPct(candles) {
   return Number(((upperWick / range) * 100).toFixed(2));
 }
 
+function hasRedReversalVolumeSpike(candles) {
+  if (!isOkCandles(candles) || candles.c.length < 2) return false;
+
+  const lastIndex = candles.c.length - 1;
+  const isRedCandle = candles.c[lastIndex] < candles.o[lastIndex];
+  const previousVolumes = candles.v.slice(0, lastIndex);
+  const averagePreviousVolume = previousVolumes.length
+    ? sum(previousVolumes) / previousVolumes.length
+    : 0;
+
+  return (
+    isRedCandle &&
+    averagePreviousVolume > 0 &&
+    candles.v[lastIndex] >= averagePreviousVolume * RED_REVERSAL_VOLUME_MULTIPLIER
+  );
+}
+
 async function buildFinnhubStockPayload(symbol) {
+  const normalizedSymbol = symbol.trim().toUpperCase();
   const [quote, candles, news] = await Promise.all([
-    getQuote(symbol),
-    getCandles(symbol, "1", 360),
-    getCompanyNews(symbol),
+    getQuote(normalizedSymbol),
+    getCandles(normalizedSymbol),
+    getCompanyNews(normalizedSymbol),
   ]);
 
   const lastPrice = quote.c;
@@ -190,19 +226,19 @@ async function buildFinnhubStockPayload(symbol) {
   const upperWickPct = getUpperWickPct(candles);
 
   return {
-    ticker: symbol,
+    ticker: normalizedSymbol,
     lastPrice,
     previousClose,
     bid: null,
     ask: null,
-    dayVolume: candles?.v?.reduce((sum, volume) => sum + volume, 0) || 0,
+    dayVolume: isOkCandles(candles) ? sum(candles.v) : 0,
     premarketVolume,
     relVol,
     aboveVWAP: vwap !== null ? lastPrice > vwap : false,
     breakingPMH: pmh !== null ? lastPrice > pmh : false,
     failedPMHBreak: pmh !== null ? lastPrice < pmh && velocityPct < 0 : false,
     upperWickPct,
-    redReversalVolumeSpike: false,
+    redReversalVolumeSpike: hasRedReversalVolumeSpike(candles),
     velocityPct,
     volumeSurge: relVol >= 3,
     newsCatalyst: Array.isArray(news) && news.length > 0,
@@ -211,4 +247,11 @@ async function buildFinnhubStockPayload(symbol) {
 
 module.exports = {
   buildFinnhubStockPayload,
+  calculatePremarketVolume,
+  calculateRelVol,
+  getPMH,
+  getUpperWickPct,
+  getVWAP,
+  getVelocityPct,
+  hasRedReversalVolumeSpike,
 };

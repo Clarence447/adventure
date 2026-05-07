@@ -5,6 +5,12 @@ const eslintConfig = [
   ...nextVitals,
   ...nextTypescript,
   {
+    files: ['backend/**/*.js'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
     ignores: ['.next/**', 'node_modules/**'],
   },
 ];
