@@ -15,8 +15,8 @@ export default function HomePage() {
           <Link href="/signup" className="bg-emerald-400 text-slate-950 px-6 py-3 rounded-xl font-semibold">
             Start Free Trial
           </Link>
-          <Link href="/dashboard" className="border border-slate-700 px-6 py-3 rounded-xl">
-            Dashboard Demo
+          <Link href="/bellpro" className="border border-slate-700 px-6 py-3 rounded-xl">
+            BellPro v2.1
           </Link>
         </div>
       </div>
