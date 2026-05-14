@@ -1,32 +1,27 @@
-# Revenue Recovery AI
+# ClawOps AI Command Center
 
-Revenue Recovery AI is a local business missed-call and lead follow-up MVP.
+ClawOps is an OpenClaw-style agent command center prototype for connecting chat channels, tools, approvals, and business workflows into one supervised automation workspace.
 
-It instantly texts missed callers, captures their service need, uses OpenAI to qualify the lead, updates the CRM, and sends a booking link.
+The app presents a polished landing page, an agent launch request flow, and the existing BellPro strategy companion page. The original missed-call recovery services remain available as integration building blocks for future API routes.
 
 ## Stack
 
 - Next.js
 - TypeScript
-- Tailwind CSS
+- Custom CSS
 - Supabase
 - Twilio
 - OpenAI API
 - Calendly booking link support
 - Vercel deployable
 
-## Core Workflow
+## Core Experience
 
-1. Customer calls business.
-2. Missed call webhook hits `/api/twilio/missed-call`.
-3. System creates or updates a lead.
-4. System sends SMS: `Hi, sorry we missed your call. What service do you need help with today?`
-5. Customer replies.
-6. Twilio sends inbound SMS to `/api/twilio/inbound-sms`.
-7. System saves inbound message.
-8. OpenAI classifies service need, urgency, location, and lead score.
-9. System replies with next step and booking link.
-10. CRM lead status is updated.
+1. Operator lands on the ClawOps command-center homepage.
+2. The page explains the private agent workspace, channel routing, approval guardrails, and workflow loop.
+3. Operator opens `/signup` to describe the first agent mission.
+4. Future implementation can persist launch requests to Supabase, trigger OpenAI planning, and connect Twilio or chat-channel automations.
+5. Existing Twilio, Supabase, and OpenAI helper modules can support revenue recovery, inbox triage, and booking workflows.
 
 ## Setup
 
