@@ -1,85 +1,74 @@
 # Revenue Recovery AI
 
-Revenue Recovery AI is a local business missed-call and lead follow-up MVP.
+Revenue Recovery AI is a local-service-business SaaS for missed-call lead recovery. The product texts missed callers, records replies, qualifies the service need, and hands qualified leads to the configured booking flow.
 
-It instantly texts missed callers, captures their service need, uses OpenAI to qualify the lead, updates the CRM, and sends a booking link.
+## Current production slice: tenant-safe onboarding
+
+This branch adds the first production dependency for every downstream automation:
+
+1. An owner signs up with Supabase email/password authentication.
+2. Auth cookies are refreshed server-side and protected routes verify JWT claims.
+3. The owner completes a required business profile: name, E.164 receiving number, services, service area, booking link, and review link.
+4. Supabase Row Level Security limits businesses, leads, messages, and appointments to the authenticated owner.
+5. The owner can sign out, sign back in, view the protected dashboard, and update settings.
+
+This slice does **not** claim that Twilio capture, OpenAI qualification, Stripe entitlement, or ROI reporting is production-ready. Those remain separate Issue #1 slices.
 
 ## Stack
 
-- Next.js
-- TypeScript
-- Tailwind CSS
-- Supabase
-- Twilio
-- OpenAI API
-- Calendly booking link support
-- Vercel deployable
+- Next.js / TypeScript / Tailwind CSS
+- Supabase Auth and Postgres RLS
+- Twilio, OpenAI, and Stripe dependencies for later Issue #1 slices
+- Vercel deployment target
 
-## Core Workflow
-
-1. Customer calls business.
-2. Missed call webhook hits `/api/twilio/missed-call`.
-3. System creates or updates a lead.
-4. System sends SMS: `Hi, sorry we missed your call. What service do you need help with today?`
-5. Customer replies.
-6. Twilio sends inbound SMS to `/api/twilio/inbound-sms`.
-7. System saves inbound message.
-8. OpenAI classifies service need, urgency, location, and lead score.
-9. System replies with next step and booking link.
-10. CRM lead status is updated.
-
-## Setup
+## Local setup
 
 ```bash
 npm install
 cp .env.example .env.local
+supabase start
+supabase db reset
 npm run dev
 ```
 
-Run the SQL in `supabase/schema.sql` inside the Supabase SQL editor.
+Use `supabase db push` for a linked non-local environment. Do not manually paste undocumented schema changes into production.
 
-## Required Environment Variables
+## Supabase Auth configuration
+
+Add the local and deployed origins to Supabase Auth redirect URLs. Confirmation and recovery links return through `/auth/confirm` and are restricted to known in-app destinations.
+
+Required public variables:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_PHONE_NUMBER=
-OPENAI_API_KEY=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-## Twilio Webhooks
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` remains a fallback for existing Supabase projects. `SUPABASE_SERVICE_ROLE_KEY` must remain server-side and is not used to authorize customer pages.
 
-Missed call webhook:
+## Verification
 
-```txt
-https://your-domain.com/api/twilio/missed-call
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+supabase test db
 ```
 
-Inbound SMS webhook:
+The pgTAP test proves anonymous denial and Customer A/Customer B isolation for business and lead records. CI runs application checks and the local Supabase policy suite.
 
-```txt
-https://your-domain.com/api/twilio/inbound-sms
-```
+## Existing product routes
 
-Both should use `POST`.
+The existing `/bellpro` route is preserved. This slice does not rebrand Revenue Recovery AI, add ClawOps, or change BellPro content.
 
-## Production Hardening Checklist
+## Remaining Issue #1 work
 
-- Add authentication.
-- Add multi-tenant business ownership.
-- Add editable settings form.
-- Add Twilio request signature validation.
-- Add rate limiting.
-- Add retry/error logging.
-- Add Calendly appointment webhook.
-- Add SMS opt-out handling.
-- Add TCPA-safe consent language.
-- Add Stripe subscription billing.
+- Signed, tenant-routed, idempotent Twilio missed-call and inbound-SMS capture
+- STOP-family suppression at the final send boundary
+- Schema-validated OpenAI qualification with deterministic fallback
+- Stripe billing and entitlement enforcement
+- Booking reconciliation and reproducible customer ROI metrics
 
-## Compliance Note
-
-SMS follow-up must comply with Twilio policies, carrier rules, and applicable consent requirements. Do not spam. Do not message people without a legitimate customer inquiry or consent basis.
+Production credentials, billing activation, phone-number configuration, and compliance approval remain operator-controlled launch steps.
