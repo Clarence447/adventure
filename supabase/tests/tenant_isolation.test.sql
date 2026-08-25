@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(14);
 
 insert into auth.users (id, email)
 values
@@ -25,10 +25,10 @@ values
     'https://example.com/book-b', 'https://example.com/review-b'
   );
 
-insert into public.leads (business_id, phone)
+insert into public.leads (id, business_id, phone)
 values
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '+14075550303'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '+14075550404');
+  ('aaaaaaaa-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '+14075550303'),
+  ('bbbbbbbb-2222-2222-2222-222222222222', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '+14075550404');
 
 insert into public.messages (business_id, lead_id, direction, body)
 select business_id, id, 'inbound', 'test message'
@@ -49,9 +49,22 @@ select throws_ok(
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 
+select lives_ok(
+  $$insert into public.businesses (
+      owner_user_id, name, phone_number, services, service_area,
+      calendly_booking_link, google_review_link
+    ) values (
+      '11111111-1111-1111-1111-111111111111', 'Business A updated',
+      '+14075550101', array['Service A'], 'Orlando',
+      'https://example.com/book-a', 'https://example.com/review-a'
+    )
+    on conflict (owner_user_id) do update set name = excluded.name$$,
+  'owner profile upsert can infer the owner_user_id unique index'
+);
+
 select results_eq(
   $$select name from public.businesses order by name$$,
-  array['Business A'],
+  array['Business A updated'],
   'owner A can read only business A'
 );
 
@@ -83,6 +96,40 @@ select throws_ok(
   '42501',
   null,
   'owner A cannot create a lead for business B'
+);
+
+select throws_ok(
+  $$insert into public.messages (business_id, lead_id, direction, body)
+    values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'bbbbbbbb-2222-2222-2222-222222222222', 'inbound', 'cross-tenant')$$,
+  '23503',
+  null,
+  'owner A cannot attach a message to business B lead'
+);
+
+select throws_ok(
+  $$update public.messages
+    set lead_id = 'bbbbbbbb-2222-2222-2222-222222222222'
+    where lead_id = 'aaaaaaaa-1111-1111-1111-111111111111'$$,
+  '23503',
+  null,
+  'owner A cannot move a message to business B lead'
+);
+
+select throws_ok(
+  $$insert into public.appointments (business_id, lead_id, calendly_event_uri)
+    values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'bbbbbbbb-2222-2222-2222-222222222222', 'https://example.com/events/cross-tenant')$$,
+  '23503',
+  null,
+  'owner A cannot attach an appointment to business B lead'
+);
+
+select throws_ok(
+  $$update public.appointments
+    set lead_id = 'bbbbbbbb-2222-2222-2222-222222222222'
+    where lead_id = 'aaaaaaaa-1111-1111-1111-111111111111'$$,
+  '23503',
+  null,
+  'owner A cannot move an appointment to business B lead'
 );
 
 select throws_ok(
