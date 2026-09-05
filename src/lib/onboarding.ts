@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+const webUrl = z.string().trim().url('Enter a valid web URL').refine(
+  (value) => ['https:', 'http:'].includes(new URL(value).protocol),
+  'Use an HTTP or HTTPS URL',
+);
+
 const requiredText = z.string().trim().min(1, 'This field is required').max(200);
 
 export const businessProfileSchema = z.object({
@@ -13,8 +18,8 @@ export const businessProfileSchema = z.object({
     .min(1, 'Enter at least one service')
     .max(50),
   service_area: requiredText,
-  calendly_booking_link: z.string().trim().url('Enter a valid booking URL'),
-  google_review_link: z.string().trim().url('Enter a valid review URL'),
+  calendly_booking_link: webUrl,
+  google_review_link: webUrl,
 });
 
 export type BusinessProfileInput = z.infer<typeof businessProfileSchema>;
