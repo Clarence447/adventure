@@ -19,22 +19,34 @@ create function public.submit_acquisition_request(payload jsonb)
 returns text language plpgsql security invoker set search_path = '' as $$
 declare
   normalized_email text := lower(btrim(payload->>'email'));
+  normalized_phone text := coalesce(payload->>'phone', '');
+  submitted_answers jsonb := payload - array['submission_id', 'business_name', 'contact_name', 'email', 'phone', 'consent'];
+  existing public.acquisition_requests%rowtype;
 begin
   if payload->>'consent' is distinct from 'true' then
     raise exception 'Contact consent is required';
   end if;
   -- Serialize per email so concurrent requests cannot bypass the hourly cap.
   perform pg_advisory_xact_lock(hashtextextended(normalized_email, 0));
-  if exists (select 1 from public.acquisition_requests where submission_id = (payload->>'submission_id')::uuid) then
-    return 'received';
+  select * into existing
+  from public.acquisition_requests
+  where submission_id = (payload->>'submission_id')::uuid;
+  if found then
+    if existing.business_name = payload->>'business_name'
+      and existing.contact_name = payload->>'contact_name'
+      and existing.email = normalized_email
+      and existing.phone = normalized_phone
+      and existing.answers = submitted_answers then
+      return 'received';
+    end if;
+    return 'submission_mismatch';
   end if;
   if (select count(*) from public.acquisition_requests where email = normalized_email and created_at > now() - interval '1 hour') >= 3 then
     return 'rate_limited';
   end if;
   insert into public.acquisition_requests (submission_id, business_name, contact_name, email, phone, answers)
   values ((payload->>'submission_id')::uuid, payload->>'business_name', payload->>'contact_name', normalized_email,
-    coalesce(payload->>'phone', ''), payload - array['submission_id', 'business_name', 'contact_name', 'email', 'phone', 'consent'])
-  on conflict (submission_id) do nothing;
+    normalized_phone, submitted_answers);
   return 'received';
 end;
 $$;
