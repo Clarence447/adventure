@@ -72,3 +72,11 @@ The existing `/bellpro` route is preserved. This slice does not rebrand Revenue 
 - Booking reconciliation and reproducible customer ROI metrics
 
 Production credentials, billing activation, phone-number configuration, and compliance approval remain operator-controlled launch steps.
+
+## Revenue Recovery acquisition form
+
+The homepage now links to `/assessment`, an eight-step public enquiry form. It captures six business-process answers, business name, contact details and affirmative enquiry-contact consent. It does not create a customer account or start billing. Requests are saved in the operator-only `acquisition_requests` table, separate from tenant `leads`.
+
+Apply migrations through `supabase db push` before deploying the new form. The server needs the existing `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Review submissions in the Supabase Table Editor as an authorized project operator; ordinary customer accounts cannot read them. No automatic email/SMS notifications or marketing sequences are enabled by this change.
+
+`POST /api/acquisition` validates all fields, rejects cross-origin submissions and oversized bodies, checks a honeypot, and only confirms success after storage acknowledges the request. Request IDs make retries idempotent; the database serializes a three-requests-per-email-per-hour limit. This limits repeated submissions, but is not a distributed bot-defense system. Contact consent is recorded with server time and version `enquiry-contact-v1`; it covers responding to the enquiry, not automated marketing texts.
