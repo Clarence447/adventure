@@ -37,6 +37,7 @@ export async function POST(request: Request) {
     const { data, error } = await db.rpc('submit_acquisition_request', { payload: lead });
     if (error) return Response.json({ error: 'Your request could not be saved. Please try again.' }, { status: 503 });
     if (data === 'rate_limited') return Response.json({ error: 'Too many requests. Please try again in an hour.' }, { status: 429 });
+    if (data === 'submission_mismatch') return Response.json({ error: 'Your answers changed after the first submission attempt. Please reload the form and submit again.' }, { status: 409 });
     if (data !== 'received') return Response.json({ error: 'Your request could not be saved. Please try again.' }, { status: 503 });
     return Response.json({ received: true });
   } catch {
