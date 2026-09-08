@@ -1,0 +1,10 @@
+import { randomBytes } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
+import { isAbsolute } from 'node:path';
+import { passwordHash } from './server.mjs';
+const destination = process.argv[2];
+if (!destination || !isAbsolute(destination)) throw new Error('Supply a new absolute private environment-file path');
+const password = randomBytes(24).toString('base64url');
+writeFileSync(destination, `RR_INBOX_PASSWORD_HASH=${passwordHash(password)}\n`, { flag: 'wx', mode: 0o600 });
+console.log('Save this generated inbox password in your password manager. It is shown only now:');
+console.log(password);
