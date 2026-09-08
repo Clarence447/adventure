@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(8);
+select plan(11);
 set local role anon;
 select throws_ok($$select * from public.acquisition_requests$$, '42501', null, 'anonymous visitors cannot read prospects');
 select throws_ok($$select public.submit_acquisition_request('{}'::jsonb)$$, '42501', null, 'anonymous visitors cannot bypass the API');
@@ -8,7 +8,11 @@ set local role authenticated;
 select throws_ok($$select * from public.acquisition_requests$$, '42501', null, 'customer accounts cannot read operator prospects');
 set local role service_role;
 select is(public.submit_acquisition_request('{"submission_id":"11111111-1111-4111-8111-111111111111","email":"TEST@example.com","business_name":"Test Shop","contact_name":"Owner","consent":true}'), 'received', 'server can save a prospect');
-select is(public.submit_acquisition_request('{"submission_id":"11111111-1111-4111-8111-111111111111","email":"test@example.com","consent":true}'), 'received', 'retry returns success');
+select is(public.submit_acquisition_request('{"submission_id":"11111111-1111-4111-8111-111111111111","email":"test@example.com","business_name":"Test Shop","contact_name":"Owner","consent":true}'), 'received', 'identical retry with normalized email returns success');
+
+select is(public.submit_acquisition_request('{"submission_id":"11111111-1111-4111-8111-111111111111","email":"test@example.com","consent":true}'), 'submission_mismatch', 'incomplete retry is rejected');
+select is(public.submit_acquisition_request('{"submission_id":"11111111-1111-4111-8111-111111111111","email":"test@example.com","business_name":"Edited Shop","contact_name":"Owner","consent":true}'), 'submission_mismatch', 'edited retry is rejected');
+select is((select business_name from public.acquisition_requests where submission_id = '11111111-1111-4111-8111-111111111111'), 'Test Shop', 'rejected retries preserve the saved prospect');
 select is((select count(*)::integer from public.acquisition_requests where email = 'test@example.com'), 1, 'retry does not duplicate the prospect');
 select public.submit_acquisition_request('{"submission_id":"22222222-2222-4222-8222-222222222222","email":"test@example.com","business_name":"Test","contact_name":"Owner","consent":true}');
 select public.submit_acquisition_request('{"submission_id":"33333333-3333-4333-8333-333333333333","email":"test@example.com","business_name":"Test","contact_name":"Owner","consent":true}');
