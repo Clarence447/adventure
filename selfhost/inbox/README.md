@@ -1,17 +1,33 @@
-## Private enquiry inbox
+# Integrated owner workspace
 
-The optional inbox is a **separate loopback-only service**, default port 3089. It provides password sign-in, newest-first enquiries (50 per page), full questionnaire/contact/consent details, New/Contacted/Closed status and follow-up notes. Refresh to see new enquiries. No notification emails are sent. Do not route the public enquiry tunnel to this port.
+Revenue Recovery now includes **Owner sign in → Dashboard → Enquiries** on the same website and existing service/port. There is no separate inbox server or port 3089. The public form remains available without signing in; the owner dashboard and enquiry APIs require an authenticated owner session. The retained Supabase customer mode is unchanged; owner APIs are disabled in that mode.
 
-On the actual host, verify 3089 is unused, make a consistent database backup, and use the existing independent Node 24 runtime. Generate credentials **in your own terminal**, not in a shared agent log:
+The workspace includes counts, newest-first lists (50 per page), status filters, contact links, all questionnaire answers and consent details, New/Contacted/Closed status, follow-up notes, save feedback, conflict detection, and an unsaved-edit warning. Use Refresh to see new submissions. No notification email is sent.
 
-```sh
-node selfhost/inbox/setup.mjs /home/clarence/revenue-recovery-data/inbox.env
-```
+## Install on the existing host
 
-This refuses overwrite, writes a private password-hash environment file, and shows a random password once. Save it in a password manager. Do not commit either the environment file or password. Install `selfhost/inbox/revenue-recovery-inbox.service.example` as a separate user service after verifying its paths. The example loads the environment file and existing database. Enable/start only `revenue-recovery-inbox.service`; no public-funnel restart is needed. Open **http://localhost:3089** on the always-on computer. Set `RR_INBOX_PORT` to a verified unused port if needed. Use localhost exactly; other Host headers are rejected.
+1. Review/merge the PR #10 dependency and this inbox change, then deploy the reviewed revision to the independent Revenue Recovery checkout. Preserve local modifications. Make a consistent SQLite backup before installing. Do not change TAVEY services, ports, runtimes, or credentials.
+2. Using the existing private Node 24 runtime, generate the owner credential **in your own terminal** (not a shared agent log):
 
-This first version is for access on that computer. Phone/off-site access requires a separately designed private connection; no public admin exposure is configured. Sessions expire after eight hours, end on logout/restart, and use HttpOnly/SameSite cookies. Failed login attempts are throttled. Mutations require the exact same origin. Keep the computer account private; Windows ACLs must protect data and credentials.
+   `node selfhost/inbox/setup.mjs /home/clarence/revenue-recovery-data/inbox.env`
 
-Follow-up fields live in an additive `enquiry_followup` table; original questionnaire payloads and idempotent submission behavior are preserved. Concurrent edits are rejected rather than silently overwritten. SQLite backups include the new table. **The existing enquiry JSON export does not include follow-up notes/status**; use a full SQLite backup to preserve both. The inbox does not schedule its own backups: retain the public funnel's daily backups and off-device copies.
+   The command refuses overwrite, writes a salted password hash with mode 0600, and displays the generated password once. Store it in a password manager. An existing valid inbox.env from the earlier design can be reused. Do not print it or commit it.
+3. Add `EnvironmentFile=/home/clarence/revenue-recovery-data/inbox.env` to a **Revenue Recovery-only** systemd drop-in for `revenue-recovery.service`. Retain the existing RR_DB_PATH, RR_BACKUP_DIR and independent runtime. RR_PUBLIC_ORIGIN must exactly match the URL used in the browser (localhost before launch; HTTPS public origin after launch).
+4. Run `npm ci` and `npm run build` in the isolated checkout. Reload the user service configuration and restart **only revenue-recovery.service**. Open the existing website and choose **Owner sign in**. No additional server, port, or inbox service is needed. If an earlier standalone inbox was installed, disable only that confirmed Revenue Recovery inbox service.
+5. Verify the public questionnaire, sign-in, Dashboard → Enquiries, synthetic status/notes save, refresh, logout, and denied anonymous reads. Verify notes after a Revenue Recovery restart and restore a backup into a separate database. Confirm TAVEY listeners remain unchanged.
 
-Before installation, review the branch and pass tests. After installation verify sign-in, a synthetic enquiry, status/notes after an inbox-only restart, and unchanged public-funnel/TAVEY listeners. Rollback: stop/disable only the inbox service and revert its checkout changes if needed; leave the additive table and data intact. Password rotation: generate a new environment file privately, update only the inbox service's EnvironmentFile, and restart that service. Never overwrite a live database.
+## Public launch
+
+Public HTTPS setup still targets only the existing Revenue Recovery loopback port. If tunnel rules currently allow only questionnaire paths, explicitly permit `/login`, `/dashboard`, `/dashboard/enquiries`, `/api/inbox/login`, `/api/inbox/logout`, `/api/inbox/enquiries`, `/api/inbox/followup`, and required Next assets. These routes enforce application authentication; adding them to routing does not grant data access. Do not broaden to operating-system paths or other services. Configure edge abuse controls before public launch and test from another network. No tunnel or DNS changes are made by this PR.
+
+Cookies are HttpOnly, SameSite=Strict, and Secure on HTTPS. Sessions expire after eight hours; hashed tokens live in SQLite so workers/restarts agree. Password rotation invalidates existing sessions. Login throttling is shared in SQLite; five failed attempts trigger a five-minute lockout. Mutations require the exact configured Origin. Keep credentials, backups and database private; protect Windows files with ACLs.
+
+## Data and recovery
+
+Original submissions remain immutable. Additive tables store follow-up notes/status, sessions and login throttling. Full consistent SQLite backups include follow-up data; the existing enquiry JSON export still contains only original submissions. Keep daily and off-device backups. Restoring a backup may restore unexpired sessions: rotate the owner password after recovery to revoke them.
+
+Lost password: generate a new private environment file, update only Revenue Recovery's EnvironmentFile and restart that service. There is no public password-reset endpoint. Rollback: deploy the previously reviewed application build and restart only Revenue Recovery, preserving the database and additive tables. Do not overwrite the live database.
+
+## Product requirement
+
+Keep the operator workflow integrated in one application. New features should account for navigation, authentication, empty/loading/error states, mobile use, unsaved changes, retries and recovery before they are called complete. Do not require operators to jump between standalone tools for routine work.
