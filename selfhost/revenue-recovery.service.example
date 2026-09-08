@@ -1,0 +1,23 @@
+# Install only after replacing paths and verifying the selected Node binary.
+# A user service; never reuse or modify TAVEY's unit.
+[Unit]
+Description=Revenue Recovery enquiry funnel
+After=network.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=/home/clarence/Projects/revenue-recovery
+ExecStart=/absolute/path/to/node /home/clarence/Projects/revenue-recovery/selfhost/start.mjs
+Environment=RR_PORT=3088
+Environment=RR_DB_PATH=/home/clarence/revenue-recovery-data/enquiries.sqlite
+Environment=RR_PUBLIC_ORIGIN=http://localhost:3088
+Restart=on-failure
+RestartSec=15
+RestartPreventExitStatus=78
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

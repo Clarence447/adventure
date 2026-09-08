@@ -1,5 +1,9 @@
 # Revenue Recovery AI
 
+## Independent local enquiry launch
+
+For the no-Supabase enquiry-only deployment on the always-on computer, follow [selfhost/README.md](selfhost/README.md). It uses the existing form with local SQLite, private export, and backups. Start with `node selfhost/start.mjs` after installing/building; do not expose the server publicly until the host and HTTPS setup are verified. The hosted customer SaaS configuration below remains a separate mode.
+
 Revenue Recovery AI is a local-service-business SaaS for missed-call lead recovery. The product texts missed callers, records replies, qualifies the service need, and hands qualified leads to the configured booking flow.
 
 ## Current production slice: tenant-safe onboarding
@@ -72,3 +76,11 @@ The existing `/bellpro` route is preserved. This slice does not rebrand Revenue 
 - Booking reconciliation and reproducible customer ROI metrics
 
 Production credentials, billing activation, phone-number configuration, and compliance approval remain operator-controlled launch steps.
+
+## Revenue Recovery acquisition form
+
+The homepage now links to `/assessment`, an eight-step public enquiry form. It captures six business-process answers, business name, contact details and affirmative enquiry-contact consent. It does not create a customer account or start billing. Requests are saved in the operator-only `acquisition_requests` table, separate from tenant `leads`.
+
+Apply migrations through `supabase db push` before deploying the new form. The server needs the existing `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Review submissions in the Supabase Table Editor as an authorized project operator; ordinary customer accounts cannot read them. No automatic email/SMS notifications or marketing sequences are enabled by this change.
+
+`POST /api/acquisition` validates all fields, rejects cross-origin submissions and oversized bodies, checks a honeypot, and only confirms success after storage acknowledges the request. Request IDs make retries idempotent; the database serializes a three-requests-per-email-per-hour limit. This limits repeated submissions, but is not a distributed bot-defense system. Contact consent is recorded with server time and version `enquiry-contact-v1`; it covers responding to the enquiry, not automated marketing texts.
