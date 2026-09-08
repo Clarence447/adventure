@@ -1,7 +1,13 @@
 import { z } from 'zod';
 
 const webUrl = z.string().trim().url('Enter a valid web URL').refine(
-  (value) => ['https:', 'http:'].includes(new URL(value).protocol),
+  (value) => {
+    try {
+      return ['https:', 'http:'].includes(new URL(value).protocol);
+    } catch {
+      return false;
+    }
+  },
   'Use an HTTP or HTTPS URL',
 );
 
