@@ -66,7 +66,7 @@ it('accepts only the configured public origin behind a local proxy', async () =>
   expect((await POST(request(valid, 'https://attacker.example'))).status).toBe(403);
   expect((await POST(request())).status).toBe(200);
 });
-it.each(['/signup', '/login', '/dashboard', '/settings', '/auth/confirm', '/api/export', '/.revenue-data/enquiries.sqlite'])('does not expose account or enquiry read routes: %s', async path => {
+it.each(['/signup', '/settings', '/auth/confirm', '/api/export', '/.revenue-data/enquiries.sqlite'])('does not expose account or enquiry read routes: %s', async path => {
   expect((await proxy(new NextRequest(`http://localhost:3088${path}`))).status).toBe(404);
 });
 it('blocks server actions on public pages but allows the enquiry endpoint', async () => {
@@ -99,4 +99,19 @@ it('refuses an occupied port before creating any database or backups', async () 
     expect(existsSync(database)).toBe(false);
     expect(existsSync(join(dir, 'backups'))).toBe(false);
   } finally { await new Promise<void>((resolve, reject) => listener.close(e => e ? reject(e) : resolve())); }
+});
+
+it('allows only the integrated owner route methods and disables caching', async () => {
+  const response = await proxy(new NextRequest('http://localhost:3088/dashboard/enquiries'));
+  expect(response.status).toBe(200);
+  expect(response.headers.get('cache-control')).toBe('no-store');
+  expect((await proxy(new NextRequest('http://localhost:3088/dashboard', {method:'POST'}))).status).toBe(404);
+  expect((await proxy(new NextRequest('http://localhost:3088/api/inbox/followup'))).status).toBe(404);
+});
+it('integrated route fails closed without credentials and in non-local mode', async () => {
+  const { GET: inboxGet } = await import('../src/app/api/inbox/[action]/route');
+  vi.stubEnv('RR_INBOX_PASSWORD_HASH','');
+  expect((await inboxGet(new Request('http://localhost:3088/api/inbox/enquiries'))).status).toBe(503);
+  vi.stubEnv('RR_STORAGE','supabase');
+  expect((await inboxGet(new Request('http://localhost:3088/api/inbox/enquiries'))).status).toBe(404);
 });
