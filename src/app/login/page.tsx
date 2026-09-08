@@ -1,3 +1,4 @@
+import { OwnerLogin } from '@/components/owner-workspace';
 import Link from 'next/link';
 import { signIn } from '@/app/auth/actions';
 import { AuthCard, fieldClassName } from '@/components/auth-card';
@@ -7,6 +8,7 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string; message?: string; next?: string }>;
 }) {
+  if (process.env.RR_STORAGE === 'sqlite') return <OwnerLogin />;
   const { error, message, next } = await searchParams;
 
   return (
