@@ -11,11 +11,15 @@ export default async function OnboardingPage({
 }) {
   const { error: message } = await searchParams;
   const { supabase, userId } = await requireUser();
-  const { data: existing } = await supabase
+  const { data: existing, error } = await supabase
     .from('businesses')
     .select('id')
     .eq('owner_user_id', userId)
     .maybeSingle();
+
+  if (error) {
+    return <main className="p-8" role="alert">Business profile could not be loaded. Please try again.</main>;
+  }
 
   if (existing) {
     redirect('/dashboard');

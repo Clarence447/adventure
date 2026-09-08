@@ -6,6 +6,7 @@ on:
       - 'src/**'
       - 'supabase/**'
       - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/tenant-onboarding.yml'
 
 jobs:

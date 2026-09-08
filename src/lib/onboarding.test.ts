@@ -25,3 +25,11 @@ describe('businessProfileSchema', () => {
     ).toBe(false);
   });
 });
+
+ it.each(['javascript:alert(1)', 'data:text/html,hello', 'ftp://example.com/file'])(
+   'rejects non-web customer links: %s', (url) => {
+     for (const field of ['calendly_booking_link', 'google_review_link']) {
+       expect(businessProfileSchema.safeParse({ ...validProfile, [field]: url }).success).toBe(false);
+     }
+   },
+ );

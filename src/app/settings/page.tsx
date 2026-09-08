@@ -11,11 +11,15 @@ export default async function SettingsPage({
 }) {
   const { error: message } = await searchParams;
   const { supabase, userId } = await requireUser();
-  const { data: business } = await supabase
+  const { data: business, error } = await supabase
     .from('businesses')
     .select('name, phone_number, services, service_area, calendly_booking_link, google_review_link')
     .eq('owner_user_id', userId)
     .maybeSingle();
+
+  if (error) {
+    return <main className="p-8" role="alert">Business profile could not be loaded. Please try again.</main>;
+  }
 
   if (!business) {
     redirect('/onboarding');
