@@ -20,6 +20,7 @@ export default function HomePage() {
             BellPro v2.1
           </Link>}
         </div>
+        <Link href="/login" className="mt-10 inline-block text-sm text-slate-300 underline underline-offset-4">Owner sign in</Link>
       </div>
     </main>
   );

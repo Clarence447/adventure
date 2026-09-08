@@ -26,7 +26,7 @@ node selfhost/start.mjs
 
 Open http://localhost:3088 on that computer. The launcher defaults to local storage, loopback-only binding, port 3088, and a private `.revenue-data` directory if no path was supplied. On Windows use an account-private directory; POSIX file modes do not replace Windows ACLs.
 
-`GET /api/health` reports database readiness without exposing enquiries or paths. Customer account/authentication routes and unrelated pages return 404 in local mode. The homepage and assessment do not call Supabase. Every POST other than the acquisition endpoint is blocked in local mode, including customer server actions.
+`GET /api/health` reports database readiness without exposing enquiries or paths. Unrelated customer account routes return 404 in local mode. The integrated owner login and dashboard use separate local owner authentication. The homepage and assessment do not call Supabase. Only the acquisition endpoint and authenticated owner API workflow accept POST in local mode; customer server actions remain blocked.
 
 ## Public access is a separate deployment step
 
@@ -60,3 +60,7 @@ Restore rehearsal: stop only Revenue Recovery, keep the original file plus any W
 - Check automatic restart after a host reboot and confirm the public address still works.
 
 This checkout is prepared/tested elsewhere; installation, reboot behavior, public HTTPS and browser validation on the TAVEY computer remain unverified until performed there.
+
+## Integrated owner inbox
+
+Open **Owner sign in** on the same website, then **Dashboard → Enquiries**. See [owner workspace setup](inbox/README.md) for credentials, installation and recovery. No separate inbox server or port is required.
