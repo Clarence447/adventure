@@ -12,8 +12,8 @@ export default function HomePage() {
           and booking automation for local businesses.
         </p>
         <div className="mt-10 flex gap-4 justify-center flex-wrap">
-          <Link href="/signup" className="bg-emerald-400 text-slate-950 px-6 py-3 rounded-xl font-semibold">
-            Start Free Trial
+          <Link href="/assessment" className="bg-emerald-400 text-slate-950 px-6 py-3 rounded-xl font-semibold">
+            Tell us about your business
           </Link>
           <Link href="/bellpro" className="border border-slate-700 px-6 py-3 rounded-xl">
             BellPro v2.1
