@@ -1,8 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { acquisitionSchema } from '../../../lib/acquisition';
 
+export const runtime = 'nodejs';
+
 export async function POST(request: Request) {
-  if (request.headers.get('origin') && request.headers.get('origin') !== new URL(request.url).origin) {
+  if (request.headers.get('origin') && request.headers.get('origin') !== (process.env.RR_PUBLIC_ORIGIN || new URL(request.url).origin)) {
     return Response.json({ error: 'Please submit from this website.' }, { status: 403 });
   }
   if (!request.headers.get('content-type')?.includes('application/json')) {
@@ -28,14 +30,25 @@ export async function POST(request: Request) {
     text += decoder.decode();
     const parsed = acquisitionSchema.safeParse(JSON.parse(text));
     if (!parsed.success) return Response.json({ error: 'Check the form and complete all required fields.' }, { status: 400 });
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) return Response.json({ error: 'The form is temporarily unavailable. Please try again later.' }, { status: 503 });
-    const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
     const { website: _website, ...lead } = parsed.data;
     void _website;
-    const { data, error } = await db.rpc('submit_acquisition_request', { payload: lead });
-    if (error) return Response.json({ error: 'Your request could not be saved. Please try again.' }, { status: 503 });
+    let data: unknown;
+    try {
+      if (process.env.RR_STORAGE === 'sqlite') {
+        const { submitLocal } = await import('../../../../selfhost/store.mjs');
+        data = submitLocal(lead);
+      } else if (!process.env.RR_STORAGE || process.env.RR_STORAGE === 'supabase') {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (!url || !key) throw new Error('Storage not configured');
+        const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+        const result = await db.rpc('submit_acquisition_request', { payload: lead });
+        if (result.error) throw new Error('Storage failed');
+        data = result.data;
+      } else { throw new Error('Unknown storage mode'); }
+    } catch {
+      return Response.json({ error: 'Your request could not be saved. Please try again.' }, { status: 503 });
+    }
     if (data === 'rate_limited') return Response.json({ error: 'Too many requests. Please try again in an hour.' }, { status: 429 });
     if (data === 'submission_mismatch') return Response.json({ error: 'Your answers changed after the first submission attempt. Please reload the form and submit again.' }, { status: 409 });
     if (data !== 'received') return Response.json({ error: 'Your request could not be saved. Please try again.' }, { status: 503 });

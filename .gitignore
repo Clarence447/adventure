@@ -13,3 +13,8 @@ pnpm-debug.log*
 
 # Local env files
 .env*.local
+
+# Local enquiry data, exports and backups
+.revenue-data/
+*.sqlite*
+*.tsbuildinfo

@@ -1,5 +1,9 @@
 # Revenue Recovery AI
 
+## Independent local enquiry launch
+
+For the no-Supabase enquiry-only deployment on the always-on computer, follow [selfhost/README.md](selfhost/README.md). It uses the existing form with local SQLite, private export, and backups. Start with `node selfhost/start.mjs` after installing/building; do not expose the server publicly until the host and HTTPS setup are verified. The hosted customer SaaS configuration below remains a separate mode.
+
 Revenue Recovery AI is a local-service-business SaaS for missed-call lead recovery. The product texts missed callers, records replies, qualifies the service need, and hands qualified leads to the configured booking flow.
 
 ## Current production slice: tenant-safe onboarding
