@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:net';
 import { existsSync, mkdirSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +15,18 @@ process.env.RR_PUBLIC_ORIGIN ||= `http://localhost:${port}`;
 const origin = new URL(process.env.RR_PUBLIC_ORIGIN);
 if (origin.origin !== process.env.RR_PUBLIC_ORIGIN || !['http:', 'https:'].includes(origin.protocol)) throw new Error('RR_PUBLIC_ORIGIN must be an exact origin, without a trailing slash.');
 if (origin.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(origin.hostname)) throw new Error('A public origin requires HTTPS.');
+// Refuse a duplicate instance before opening storage or creating a backup.
+// Exit 78 tells systemd that an operator must resolve the port conflict.
+try {
+  await new Promise((resolve, reject) => {
+    const probe = createServer();
+    probe.once('error', reject);
+    probe.listen(port, '127.0.0.1', () => probe.close(error => error ? reject(error) : resolve()));
+  });
+} catch {
+  console.error(`Revenue Recovery cannot bind port ${port}. Identify its owner before restarting this service.`);
+  process.exit(78);
+}
 if (!existsSync(join(root, '.next', 'BUILD_ID'))) throw new Error('Run npm ci and npm run build first.');
 const path = databasePath();
 openStore(path).close();

@@ -2,6 +2,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createServer } from 'node:net';
+import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { pathToFileURL } from 'node:url';
@@ -82,4 +84,19 @@ it('serializes simultaneous writers across processes without exceeding the cap',
   }));
   expect(results.filter(r => r === 'received')).toHaveLength(3);
   expect(results.filter(r => r === 'rate_limited')).toHaveLength(3);
+});
+
+it('refuses an occupied port before creating any database or backups', async () => {
+  const listener = createServer();
+  await new Promise<void>(resolve => listener.listen(0, '127.0.0.1', resolve));
+  const address = listener.address();
+  if (!address || typeof address === 'string') throw new Error('Expected TCP address');
+  const database = join(dir, 'blocked', 'enquiries.sqlite');
+  try {
+    await expect(promisify(execFile)(process.execPath, ['selfhost/start.mjs'], {
+      env: { ...process.env, RR_PORT: String(address.port), RR_DB_PATH: database, RR_PUBLIC_ORIGIN: '', RR_BACKUP_DIR: join(dir, 'backups') },
+    })).rejects.toMatchObject({ code: 78 });
+    expect(existsSync(database)).toBe(false);
+    expect(existsSync(join(dir, 'backups'))).toBe(false);
+  } finally { await new Promise<void>((resolve, reject) => listener.close(e => e ? reject(e) : resolve())); }
 });
