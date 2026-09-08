@@ -1,9 +1,12 @@
+import { requireOwner } from '@/lib/owner-auth';
+import { OwnerWorkspace } from '@/components/owner-workspace';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
+  if (process.env.RR_STORAGE === 'sqlite') { await requireOwner(); return <OwnerWorkspace />; }
   const { supabase, userId } = await requireUser();
   const { data: business, error } = await supabase
     .from('businesses')
