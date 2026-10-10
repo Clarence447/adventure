@@ -64,7 +64,7 @@ export default function HomePage() {
             <a className="nav-link" href="#features">Features</a>
             <a className="nav-link" href="#workflow">Workflow</a>
             <Link className="nav-link" href="/bellpro">BellPro</Link>
-            <Link className="button button-primary" href="/signup">Launch agent</Link>
+            <Link className="button button-primary" href="/launch">Launch agent</Link>
           </div>
         </nav>
 
@@ -79,7 +79,7 @@ export default function HomePage() {
               supervised agent workspace with local-first control and visible execution.
             </p>
             <div className="hero-actions">
-              <Link className="button button-primary" href="/signup">Build my command center →</Link>
+              <Link className="button button-primary" href="/launch">Build my command center →</Link>
               <a className="button button-secondary" href="#workflow">See the agent loop</a>
             </div>
             <div className="stat-row" aria-label="Platform highlights">
@@ -198,7 +198,7 @@ export default function HomePage() {
             </div>
             <div>
               <span className="price">$0</span>
-              <Link className="button button-primary" href="/signup">Request setup</Link>
+              <Link className="button button-primary" href="/launch">Request setup</Link>
             </div>
           </div>
         </section>
