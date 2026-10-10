@@ -1,6 +1,8 @@
-# Revenue Recovery AI
+# ClawOps AI Command Center
 
-Revenue Recovery AI is a local-service-business SaaS for missed-call lead recovery. The product texts missed callers, records replies, qualifies the service need, and hands qualified leads to the configured booking flow.
+ClawOps is an OpenClaw-style agent command center prototype for connecting chat channels, tools, approvals, and business workflows into one supervised automation workspace. The homepage and `/launch` agent request form are static prototypes; launch requests are not yet persisted.
+
+The existing Revenue Recovery AI account signup at `/signup`, authentication, tenant-safe onboarding, dashboard, and settings remain available.
 
 ## Current production slice: tenant-safe onboarding
 
@@ -61,7 +63,7 @@ The pgTAP test proves anonymous denial and Customer A/Customer B isolation for b
 
 ## Existing product routes
 
-The existing `/bellpro` route is preserved. This slice does not rebrand Revenue Recovery AI, add ClawOps, or change BellPro content.
+The existing `/bellpro` route is preserved. Homepage launch CTAs open `/launch`; owner account creation remains at `/signup`, with sign-in at `/login`. BellPro content is unchanged.
 
 ## Remaining Issue #1 work
 
